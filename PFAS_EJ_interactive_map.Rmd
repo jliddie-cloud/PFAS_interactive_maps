@@ -1,0 +1,283 @@
+---
+title: 'PFAS and environmental justice: interactive maps'
+author: "Jahred Liddie"
+output:
+  html_document:
+    theme: journal
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+  word_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+```{r setup, include=FALSE}
+# load data and set up libraries
+library(leaflet)
+library(sf)
+library(maps)
+library(tidyverse)
+library(ggthemes)
+library(ggspatial)
+library(htmlwidgets)
+
+# PFAS data
+CWS.counties <- st_read("../../Merged PFAS data/CWS_formapping.geojson")
+centroids <- st_read("../../Merged PFAS data/CWS_centroid.geojson")
+ucmr.counties <- st_read("../../Merged PFAS data/UCMR_formapping.geojson")
+
+# PFAS source data
+  # MFTA
+  military <- geojsonio::geojson_read("../../PFAS point source data/Military_2020MARCH04.geojson", what = "sp")
+  military <- st_as_sf(military, )
+
+  # airports
+  airports <- readxl::read_excel("../../PFAS point source data/Part 139_cert_airports.xlsx")
+  airports <- as.data.frame(airports)
+  
+  # epa stewardship sites
+  epa <- readxl::read_excel("../../PFAS point source data/EPA 2010.2015 PFOA Stewardship Program sites.xlsx")
+  
+  # CWNS wastewater treatment plants
+  WWTP <- read.csv("../../PFAS point source data/WWTP facility_details.csv")
+  
+  epa <- readxl::read_excel("../../PFAS point source data/EPA 2010.2015 PFOA Stewardship Program sites.xlsx")
+  
+  # sources for secondary analyses: landfills from LMOP
+  landfills <- read.csv("../../PFAS point source data/Secondary analysis/landfills_ewg.csv")
+  
+  landfills.lmop <- read.csv("../../PFAS point source data/Secondary analysis/landfilllmopdata_clean.csv")
+
+  CWS.states <- c("california", "colorado", "kentucky", "massachusetts", "michigan",
+              "maryland", "new hampshire", "new jersey", "pennsylvania", "ohio",
+              "vermont")
+  
+  ucmr.states <- c(tolower(ucmr.counties$state_name))
+    
+  # county boundaries
+  # CWS.counties <- map_data("county", regions = CWS.states)
+  # ucmr.counties <- map_data("county", regions = ucmr.states)
+  #   
+  # CWS.counties <- st_as_sf(CWS.counties, coords = c("long", "lat"),
+  #                          crs = st_crs(centroids))
+  # ucmr.counties <- st_as_sf(ucmr.counties, coords = c("long", "lat"),
+  #                           crs = st_crs(centroids))
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, message=FALSE, warning = FALSE, results='hide', echo = FALSE}
+# clean up source data
+  # ignoring WWTPs for now because there aren't points available
+  # # add leading zero to HUC codes if they are under 8 characters
+  # WWTP$Watershed.HUC <- ifelse(str_length(WWTP$Watershed.HUC) < 8, 
+  #                               paste("0", WWTP$Watershed.HUC, sep=""),
+  #                               WWTP$Watershed.HUC)
+  # 
+  # WWTP.HUCs <- WWTP %>% group_by(Watershed.HUC, Watershed.Name) %>% 
+  #   dplyr::summarise(WWTP_count = n(), 
+  #          WWTP_existingtotalflow_Mgal.d = sum(as.numeric(Existing.Total.Flow..Mgal.d.))) %>% 
+  #   ungroup()
+  # 
+  # WWTP.HUCs <- WWTP.HUCs %>% dplyr::rename(
+  #   HUC_CODE = Watershed.HUC,
+  #   HUC_NAME = Watershed.Name
+  # ) 
+
+  ### Military sites ###
+  # note: 9 of those dropped from here are in AK
+  # st_crs(military) == st_crs(centroids) # check if true
+  # military$CWS.ind <- st_intersects(military, counties)
+  
+  ### EPA Stewardship sites ###
+  # separate into lat and lon
+  epa <- separate(epa, col = "Coordinates", into = c("lat", "lon"), sep = ",")
+  
+  # convert to sf object
+  epa <- st_as_sf(epa, coords = c("lon", "lat"), crs = "NAD83")
+  epa <- st_transform(epa, crs = st_crs(centroids))
+  epa$CWS.ind <- epa$State_ABV %in% unique(CWS.counties$state)
+  epa$ucmr.ind <- epa$State_ABV %in% unique(ucmr.counties$state)
+  
+  ### Airports ###
+  # clean up data
+  airports <- airports %>% dplyr::select(LocationID, Region, State, StateName, County, 
+                                              CountyState, City, FacilityName, ARPLatitude, 
+                                              ARPLatitudeS, ARPLongitude, ARPLongitudeS)
+  
+  airports <- separate(airports, col = "ARPLatitude", 
+                       into = c("lat.deg", "lat.min", "lat.sec.dir"), sep = "-")
+  
+  airports <- separate(airports, col = "ARPLongitude", 
+                       into = c("lon.deg", "lon.min", "lon.sec.dir"), sep = "-")
+  
+  # create columns without direction
+  airports <- airports %>% 
+    mutate(lat.sec = as.numeric(substr(lat.sec.dir, 1, nchar(lat.sec.dir)-1)),
+           lon.sec = as.numeric(substr(lon.sec.dir, 1, nchar(lon.sec.dir)-1))) 
+  
+  # calculate lat and lon
+  airports <- airports %>% 
+    mutate(
+      lat = ifelse(grepl("N", lat.sec.dir), 
+                        as.numeric(lat.deg) + as.numeric(lat.min)/60 + lat.sec/3600,
+                        -1 * (as.numeric(lat.deg) + as.numeric(lat.min)/60 + lat.sec/3600)),
+      lon = ifelse(grepl("E", lon.sec.dir), 
+                        as.numeric(lon.deg) + as.numeric(lon.min)/60 + lon.sec/3600,
+                        -1 * (as.numeric(lon.deg) + as.numeric(lon.min)/60 + lon.sec/3600)),
+    )
+  
+  # convert to sf object
+  airports <- st_as_sf(airports, 
+                            coords = c("lon", "lat"), crs = st_crs(centroids))
+  airports$CWS.ind <- airports$State %in% unique(CWS.counties$state)
+  airports$ucmr.ind <- airports$State %in% unique(ucmr.counties$state)
+  
+```
+
+
+# Interactive maps
+
+```{r, echo=FALSE}
+demo_palette <- colorNumeric(palette = "Blues", CWS.counties$percHisp)
+PFAS_palette <- colorNumeric(palette = "Blues", CWS.counties$PFOA.avg)
+
+CWS.counties <- CWS.counties %>% st_transform(crs = st_crs(centroids))
+ucmr.counties <- ucmr.counties %>% st_transform(crs = st_crs(centroids))
+
+percHisp_map1 <- leaflet(CWS.counties) %>%
+  addProviderTiles(providers$Stamen.Terrain, group = "Stamen.Terrain") %>%
+  addPolygons(fillColor = ~PFAS_palette(PFOA.avg), stroke = TRUE, 
+              color = "black", opacity = 1, weight = 1,
+              fillOpacity = 1, group = "Detection of PFOA",
+              highlightOptions = highlightOptions(fillColor = "darkblue", 
+                                                  fillOpacity = 0.9),
+              label = CWS.counties$NAME,
+              popup = paste("% population idenifying as Hispanic: ", 
+                            round(CWS.counties$percHisp, 0), "%", "<br/>",
+                            "Detection of PFOA: ", 
+                            round(CWS.counties$PFOA.avg, 2)*100, 
+                            "% of systems", "<br/>",
+                            "Number of community water systems in dataset: ",
+                            CWS.counties$num.CWS,
+                            sep = "")) %>%
+  addPolygons(fillColor = ~demo_palette(percHisp), stroke = TRUE, 
+              color = "black", opacity = 1, weight = 1,
+              fillOpacity = 1, group = "% Hispanic",
+              highlightOptions = highlightOptions(fillColor = "darkblue",
+                                                  fillOpacity = 0.9),
+              label = CWS.counties$NAME,
+              popup = paste("% population idenifying as Hispanic: ", 
+                            round(CWS.counties$percHisp, 0), "%", "<br/>",
+                            "Detection of PFOA: ", 
+                            round(CWS.counties$PFOA.avg, 2)*100, 
+                            "% of systems", "<br/>",
+                            "Number of community water systems in dataset: ",
+                            CWS.counties$num.CWS,
+                            sep = "")) %>%
+    addLegend("bottomright", 
+              pal = demo_palette, 
+              values = ~percHisp,
+              title = "% Hispanic residents",
+              labFormat = labelFormat(suffix = "%",
+                                      transform = function(x) 
+                                        sort(x, decreasing = FALSE)),
+    opacity = 1) %>%
+  addLayersControl(
+    baseGroups = c("% Hispanic", "Detection of PFOA"),
+    options = layersControlOptions(collapsed = FALSE)
+    
+  )
+
+percHisp_map1
+
+# prob best to define polygon function
+
+```
+
+
+```{r, echo=FALSE, eval=FALSE}
+NJ_PFAS_palette <- colorNumeric(palette = "inferno", demo$sum.6PFAS)
+
+PFAS_map1 <- leaflet(demo) %>%
+  addProviderTiles("Stamen.Terrain") %>%
+  addPolygons(color = ~NJ_PFAS_palette(sum.6PFAS), stroke = FALSE, 
+              fillOpacity = 0.7, group = "Avg sum of 6 PFAS",
+              highlightOptions = highlightOptions(fillColor = "darkorange", 
+                                                  fillOpacity = 0.9),
+              label = demo$NAME,
+              popup = paste("Total population: ", demo$tot_pop, "<br/>",
+                            "Hispanic population: ", demo$hispanic_pop, " (", 
+                            round(demo$percHisp * 100, 1), "%)", "<br/>",
+                            "Black population: ", demo$black_pop, " (", 
+                            round(demo$percBlack * 100, 1), "%)", "<br/>",
+                            "Average sum of 6 PFAS: ", 
+                            round(demo$sum.6PFAS, 2), 
+                            sep = "")) %>%
+    addLegend("bottomleft", pal = NJ_PFAS_palette, values = ~sum.6PFAS,
+    title = "Average sum of 6 PFAS<br/>from community water systems",
+    labFormat = labelFormat(suffix = " ppt",
+                            transform = function(x) sort(x, decreasing = TRUE)),
+    opacity = 1) %>%
+  addLayersControl(
+    overlayGroups = c("% Hispanic"),
+    options = layersControlOptions(collapsed = FALSE)
+  ) %>% 
+   addPolygons(color = ~demo_palette(percHisp), stroke = FALSE, 
+              fillOpacity = 0.7, group = "% Hispanic",
+              highlightOptions = highlightOptions(fillColor = "darkorange", 
+                                                  fillOpacity = 0.9),
+              label = demo$NAME,
+              popup = paste("Total population: ", demo$tot_pop, "<br/>",
+                            "Hispanic population: ", demo$hispanic_pop, " (", 
+                            round(demo$percHisp * 100, 1), "%)", "<br/>",
+                            "Black population: ", demo$black_pop, " (", 
+                            round(demo$percBlack * 100, 1), "%)", "<br/>",
+                            "Average sum of 6 PFAS: ", 
+                            round(demo$sum.6PFAS, 2), 
+                            sep = "")) %>%
+  addLegend("bottomleft", pal = demo_palette, values = ~percHisp,
+    title = "Percent of population<br/>identifying as Hispanic",
+    labFormat = labelFormat(suffix = "%",
+                            transform = function(x) sort(100 * x, 
+                                                         decreasing = TRUE)),
+    opacity = 1) %>%
+  addLayersControl(
+    baseGroups = c("% Hispanic", "Avg sum of 6 PFAS"),
+    options = layersControlOptions(collapsed = FALSE)
+    
+  )
+
+PFAS_map1
+
+```
+
+
+
+```{r, echo=FALSE, eval=FALSE}
+PFASsource_map2 <- PFAS_map1 %>%
+  addMarkers(lng = suspected.NJ$Longitude,
+             lat = suspected.NJ$Latitude, 
+             icon = list(
+                    iconUrl = 'suspected.png',
+                    iconSize = c(20, 20)
+                   ),
+             popup = paste(suspected.NJ$FACIL_NAME, 
+                           suspected.NJ$BRANCH, sep = ": ")) %>%
+   addMarkers(lng = military.NJ$Longitude,
+              lat = military.NJ$Latitude,
+              icon = list(
+                     iconUrl = 'military.jfif',
+                     iconSize = c(20, 20)),
+              popup = paste("ID", military.NJ$EWG_ID, sep = ": ")) %>%
+   addMarkers(lng = epa.NJ$Longitude,
+              lat = epa.NJ$Latitude,
+              icon = list(
+                     iconUrl = 'factory.png',
+                     iconSize = c(20, 20)),
+              popup = paste("Located in ", epa.NJ$City, ", NJ", sep = ""))
+
+PFASsource_map2
+```
