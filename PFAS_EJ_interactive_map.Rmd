@@ -1,5 +1,5 @@
 ---
-title: 'PFAS and environmental justice: interactive maps'
+title: 'PFAS and environmental justice: interactive maps (beta version)'
 author: "Jahred Liddie"
 output:
   html_document:
@@ -139,6 +139,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 # Interactive maps
+## Statewide sampling data
 
 ```{r, echo=FALSE}
 demo_palette <- colorNumeric(palette = "Blues", CWS.counties$percHisp)
@@ -147,49 +148,86 @@ PFAS_palette <- colorNumeric(palette = "Blues", CWS.counties$PFOA.avg)
 CWS.counties <- CWS.counties %>% st_transform(crs = st_crs(centroids))
 ucmr.counties <- ucmr.counties %>% st_transform(crs = st_crs(centroids))
 
+show.limits <- st_bbox(CWS.counties)
+limits <- st_bbox(ucmr.counties)
+
+popup.f <- function(dataset) {
+  
+  paste("<B>Demographics</B>", "<br/>",
+        "% Hispanic: ", 
+        round(dataset$percHisp, 0), "%", "<br/>",
+        "% Black non-Hispanic: ",
+        round(dataset$percBlack, 0), "%", "<br/>",
+        "% White: ",
+        round(dataset$percWhite, 0), "%", "<br/>",
+        "% living under the federal poverty line: ",
+        round(dataset$poverty, 0), "%", "<br/>", "<br/>",
+        "<B>PFAS data (% systems with levels > 5 ng/L) </B>", "<br/>",
+        "PFOA: ", 
+        round(dataset$PFOA.avg, 2)*100, "%", "<br/>",
+        "PFOS: ", 
+        round(dataset$PFOS.avg, 2)*100, "%", "<br/>",
+        "PFNA: ", 
+        round(dataset$PFNA.avg, 2)*100, "%", "<br/>",
+        "PFHxS: ", 
+        round(dataset$PFHxS.avg, 2)*100, "%", "<br/>",
+        "PFBS: ", 
+        round(dataset$PFBS, 2)*100, "%", "<br/>",
+        "At least 1 PFAS: ", 
+        round(dataset$Any.avg, 2)*100, "%", "<br/>",
+        "Number of community water systems in dataset: ",
+        dataset$num.CWS,
+        sep = "")
+}
+
+
 percHisp_map1 <- leaflet(CWS.counties) %>%
-  addProviderTiles(providers$Stamen.Terrain, group = "Stamen.Terrain") %>%
+  addProviderTiles(providers$Stamen.TonerLite, group = "Stamen.TonerLite") %>%
+  # other providers: https://leaflet-extras.github.io/leaflet-providers/preview/
   addPolygons(fillColor = ~PFAS_palette(PFOA.avg), stroke = TRUE, 
               color = "black", opacity = 1, weight = 1,
               fillOpacity = 1, group = "Detection of PFOA",
               highlightOptions = highlightOptions(fillColor = "darkblue", 
                                                   fillOpacity = 0.9),
               label = CWS.counties$NAME,
-              popup = paste("% population idenifying as Hispanic: ", 
-                            round(CWS.counties$percHisp, 0), "%", "<br/>",
-                            "Detection of PFOA: ", 
-                            round(CWS.counties$PFOA.avg, 2)*100, 
-                            "% of systems", "<br/>",
-                            "Number of community water systems in dataset: ",
-                            CWS.counties$num.CWS,
-                            sep = "")) %>%
+              popup = popup.f(dataset = CWS.counties))  %>%
   addPolygons(fillColor = ~demo_palette(percHisp), stroke = TRUE, 
-              color = "black", opacity = 1, weight = 1,
-              fillOpacity = 1, group = "% Hispanic",
-              highlightOptions = highlightOptions(fillColor = "darkblue",
-                                                  fillOpacity = 0.9),
-              label = CWS.counties$NAME,
-              popup = paste("% population idenifying as Hispanic: ", 
-                            round(CWS.counties$percHisp, 0), "%", "<br/>",
-                            "Detection of PFOA: ", 
-                            round(CWS.counties$PFOA.avg, 2)*100, 
-                            "% of systems", "<br/>",
-                            "Number of community water systems in dataset: ",
-                            CWS.counties$num.CWS,
-                            sep = "")) %>%
-    addLegend("bottomright", 
-              pal = demo_palette, 
-              values = ~percHisp,
-              title = "% Hispanic residents",
-              labFormat = labelFormat(suffix = "%",
-                                      transform = function(x) 
-                                        sort(x, decreasing = FALSE)),
-    opacity = 1) %>%
+            color = "black", opacity = 1, weight = 1,
+            fillOpacity = 1, group = "% Hispanic residents",
+            highlightOptions = highlightOptions(fillColor = "darkblue", 
+                                                fillOpacity = 0.9),
+            label = CWS.counties$NAME,
+            popup = popup.f(dataset = CWS.counties)) %>%
+  addLegend("bottomright", 
+            pal = demo_palette, 
+            values = ~percHisp,
+            title = "% Hispanic residents",
+            labFormat = labelFormat(suffix = "%",
+                                    transform = function(x) 
+                                      sort(x, decreasing = FALSE)),
+            opacity = 1) %>%
+  addLegend("bottomright", 
+            pal = PFAS_palette, 
+            values = ~PFOA.avg,
+            title = "% detecting PFOA",
+            labFormat = labelFormat(suffix = "%",
+                                    transform = function(x) 
+                                      sort(x, decreasing = FALSE)),
+            opacity = 1) %>%
   addLayersControl(
     baseGroups = c("% Hispanic", "Detection of PFOA"),
     options = layersControlOptions(collapsed = FALSE)
-    
-  )
+  ) %>%
+  fitBounds(lng1 = as.numeric(show.limits[1]),
+            lat1 = as.numeric(show.limits[2]),
+            lng2 = as.numeric(show.limits[3]),
+            lat2 = as.numeric(show.limits[4]),
+          ) %>%
+  setMaxBounds(lng1 = as.numeric(limits[1]),
+               lat1 = as.numeric(limits[2]),
+               lng2 = as.numeric(limits[3]),
+               lat2 = as.numeric(limits[4])
+               )
 
 percHisp_map1
 
@@ -200,6 +238,8 @@ percHisp_map1
 
 ```{r, echo=FALSE, eval=FALSE}
 NJ_PFAS_palette <- colorNumeric(palette = "inferno", demo$sum.6PFAS)
+
+limits <- st_bbox(NJ_demo)
 
 PFAS_map1 <- leaflet(demo) %>%
   addProviderTiles("Stamen.Terrain") %>%
@@ -281,3 +321,5 @@ PFASsource_map2 <- PFAS_map1 %>%
 
 PFASsource_map2
 ```
+
+## UCMR 3
