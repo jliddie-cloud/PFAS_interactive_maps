@@ -42,8 +42,6 @@ ucmr.counties <- st_read("../../Merged PFAS data/UCMR_formapping.geojson")
   # CWNS wastewater treatment plants
   WWTP <- read.csv("../../PFAS point source data/WWTP facility_details.csv")
   
-  epa <- readxl::read_excel("../../PFAS point source data/EPA 2010.2015 PFOA Stewardship Program sites.xlsx")
-  
   # sources for secondary analyses: landfills from LMOP
   landfills <- read.csv("../../PFAS point source data/Secondary analysis/landfills_ewg.csv")
   
@@ -142,15 +140,16 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Statewide sampling data
 
 ```{r, echo=FALSE}
-demo_palette <- colorNumeric(palette = "Blues", CWS.counties$percHisp)
-PFAS_palette <- colorNumeric(palette = "Blues", CWS.counties$PFOA.avg)
 
-CWS.counties <- CWS.counties %>% st_transform(crs = st_crs(centroids))
-ucmr.counties <- ucmr.counties %>% st_transform(crs = st_crs(centroids))
+# function for making palettes
+makepalette.f <- function(variable){
 
-show.limits <- st_bbox(CWS.counties)
-limits <- st_bbox(ucmr.counties)
+  variable_palette <- colorNumeric(palette = "Blues", CWS.counties$variable)
+  
+  variable_palette(variable)
+}
 
+# function for popups
 popup.f <- function(dataset) {
   
   paste("<B>Demographics</B>", "<br/>",
@@ -164,74 +163,119 @@ popup.f <- function(dataset) {
         round(dataset$poverty, 0), "%", "<br/>", "<br/>",
         "<B>PFAS data (% systems with levels > 5 ng/L) </B>", "<br/>",
         "PFOA: ", 
-        round(dataset$PFOA.avg, 2)*100, "%", "<br/>",
+        round(dataset$PFOA.avg, 0), "%", "<br/>",
         "PFOS: ", 
-        round(dataset$PFOS.avg, 2)*100, "%", "<br/>",
+        round(dataset$PFOS.avg, 0), "%", "<br/>",
         "PFNA: ", 
-        round(dataset$PFNA.avg, 2)*100, "%", "<br/>",
+        round(dataset$PFNA.avg, 0), "%", "<br/>",
         "PFHxS: ", 
-        round(dataset$PFHxS.avg, 2)*100, "%", "<br/>",
+        round(dataset$PFHxS.avg, 0), "%", "<br/>",
         "PFBS: ", 
-        round(dataset$PFBS, 2)*100, "%", "<br/>",
+        round(dataset$PFBS, 0), "%", "<br/>",
         "At least 1 PFAS: ", 
-        round(dataset$Any.avg, 2)*100, "%", "<br/>",
+        round(dataset$Any.avg, 0), "%", "<br/>",
         "Number of community water systems in dataset: ",
         dataset$num.CWS,
         sep = "")
 }
 
+CWS.counties <- CWS.counties %>% st_transform(crs = st_crs(centroids))
+ucmr.counties <- ucmr.counties %>% st_transform(crs = st_crs(centroids))
 
-percHisp_map1 <- leaflet(CWS.counties) %>%
+limits <- st_bbox(ucmr.counties)
+
+# prob best to define polygon function?
+
+
+map1 <- leaflet(CWS.counties) %>%
   addProviderTiles(providers$Stamen.TonerLite, group = "Stamen.TonerLite") %>%
+  
   # other providers: https://leaflet-extras.github.io/leaflet-providers/preview/
-  addPolygons(fillColor = ~PFAS_palette(PFOA.avg), stroke = TRUE, 
+  # PFAS variables
+  addPolygons(fillColor = ~makepalette.f(PFOA.avg), stroke = TRUE, 
               color = "black", opacity = 1, weight = 1,
               fillOpacity = 1, group = "Detection of PFOA",
               highlightOptions = highlightOptions(fillColor = "darkblue", 
                                                   fillOpacity = 0.9),
               label = CWS.counties$NAME,
               popup = popup.f(dataset = CWS.counties))  %>%
-  addPolygons(fillColor = ~demo_palette(percHisp), stroke = TRUE, 
+  addPolygons(fillColor = ~makepalette.f(PFOS.avg), stroke = TRUE, 
             color = "black", opacity = 1, weight = 1,
-            fillOpacity = 1, group = "% Hispanic residents",
+            fillOpacity = 1, group = "Detection of PFOS",
             highlightOptions = highlightOptions(fillColor = "darkblue", 
                                                 fillOpacity = 0.9),
             label = CWS.counties$NAME,
             popup = popup.f(dataset = CWS.counties)) %>%
-  addLegend("bottomright", 
-            pal = demo_palette, 
-            values = ~percHisp,
-            title = "% Hispanic residents",
-            labFormat = labelFormat(suffix = "%",
-                                    transform = function(x) 
-                                      sort(x, decreasing = FALSE)),
-            opacity = 1) %>%
-  addLegend("bottomright", 
-            pal = PFAS_palette, 
-            values = ~PFOA.avg,
-            title = "% detecting PFOA",
-            labFormat = labelFormat(suffix = "%",
-                                    transform = function(x) 
-                                      sort(x, decreasing = FALSE)),
-            opacity = 1) %>%
+  addPolygons(fillColor = ~makepalette.f(Any.avg), stroke = TRUE, 
+          color = "black", opacity = 1, weight = 1,
+          fillOpacity = 1, group = "Detection of ≥1 PFAS",
+          highlightOptions = highlightOptions(fillColor = "darkblue", 
+                                              fillOpacity = 0.9),
+          label = CWS.counties$NAME,
+          popup = popup.f(dataset = CWS.counties)) %>%
+  # addLegend(
+  #           pal = PFAS_palette, 
+  #           values = ~PFOA.avg,
+  #           group = "Detection of PFOA",
+  #           title = "% detecting PFOA",
+  #           labFormat = labelFormat(suffix = "%",
+  #                                   transform = function(x) 
+  #                                     sort(x, decreasing = FALSE)),
+  #           opacity = 1) %>%
+  
+    addPolygons(fillColor = ~makepalette.f(percHisp), stroke = TRUE, 
+                color = "black", opacity = 1, weight = 1,
+                fillOpacity = 1, group = "% Hispanic residents",
+                highlightOptions = highlightOptions(fillColor = "darkblue", 
+                                                    fillOpacity = 0.9),
+                label = CWS.counties$NAME,
+                popup = popup.f(dataset = CWS.counties)) %>%
+  
+    addPolygons(fillColor = ~makepalette.f(percBlack),
+                stroke = TRUE, color = "black", opacity = 1, weight = 1,
+                fillOpacity = 1, group = "% Black residents",
+                highlightOptions = highlightOptions(fillColor = "darkblue", 
+                                                    fillOpacity = 0.9),
+                label = CWS.counties$NAME,
+                popup = popup.f(dataset = CWS.counties)) %>%
+  
+    addPolygons(fillColor = ~makepalette.f(percWhite),
+              stroke = TRUE, color = "black", opacity = 1, weight = 1,
+              fillOpacity = 1, group = "% White residents",
+              highlightOptions = highlightOptions(fillColor = "darkblue", 
+                                                  fillOpacity = 0.9),
+              label = CWS.counties$NAME,
+              popup = popup.f(dataset = CWS.counties)) %>%
+  
+    addPolygons(fillColor = ~makepalette.f(poverty),
+              stroke = TRUE, color = "black", opacity = 1, weight = 1,
+              fillOpacity = 1, group =  "% residents living under federal poverty line",
+              highlightOptions = highlightOptions(fillColor = "darkblue", 
+                                                  fillOpacity = 0.9),
+              label = CWS.counties$NAME,
+              popup = popup.f(dataset = CWS.counties)) %>%
+  
+    # PFAS sources
+  addCircleMarkers(data = epa, radius = 3, group = "EPA Stewardship sites",
+                   weight = 3,
+                   color = "black", fillColor = "goldenrod", fillOpacity = 1) %>%
+  
   addLayersControl(
-    baseGroups = c("% Hispanic", "Detection of PFOA"),
-    options = layersControlOptions(collapsed = FALSE)
-  ) %>%
-  fitBounds(lng1 = as.numeric(show.limits[1]),
-            lat1 = as.numeric(show.limits[2]),
-            lng2 = as.numeric(show.limits[3]),
-            lat2 = as.numeric(show.limits[4]),
-          ) %>%
+    position = "bottomright",
+    baseGroups  = c("% Hispanic residents", "% Black residents", "% White residents",
+                    "% residents living under federal poverty line",
+                    "Detection of PFOA", "Detection of PFOS", "Detection of ≥1 PFAS"),
+    overlayGroups = c("EPA Stewardship sites"),
+    options = layersControlOptions(collapsed = TRUE)) %>%
+  
+
   setMaxBounds(lng1 = as.numeric(limits[1]),
-               lat1 = as.numeric(limits[2]),
-               lng2 = as.numeric(limits[3]),
-               lat2 = as.numeric(limits[4])
+               lat1 = as.numeric(limits[2]) - 10,
+               lng2 = as.numeric(limits[3]) + 10,
+               lat2 = as.numeric(limits[4]) + 10
                )
 
-percHisp_map1
-
-# prob best to define polygon function
+map1
 
 ```
 
