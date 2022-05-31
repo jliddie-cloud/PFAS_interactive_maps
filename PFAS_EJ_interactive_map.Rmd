@@ -71,7 +71,6 @@ ucmr.counties <- st_transform(ucmr.counties, crs = st_crs(centroids))
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
 ```{r, message=FALSE, warning = FALSE, results='hide', echo = FALSE}
 # clean up source data
   # ignoring WWTPs for now because there aren't points available
@@ -154,6 +153,20 @@ knitr::opts_chunk$set(echo = TRUE)
     # drop missing coords
     st_as_sf(coords = c("lon", "lat"), crs = st_crs(centroids))
   
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# clean up centroids
+centroids.nosf <- centroids %>%
+  st_coordinates() %>%
+   cbind(st_drop_geometry(centroids),.)
+
+centroids.nosf <- centroids.nosf %>%
+  group_by(PWSID) %>%
+  mutate(X = mean(X),
+         Y = mean(Y))
+
+# centroids.nosf <- st_as_sf(centroids.nosf, 
 ```
 
 
@@ -315,7 +328,7 @@ map1 <- leaflet(CWS.counties) %>%
                  weight = 3,
                  color = "black", fillColor = "red", fillOpacity = 1) %>%
   addCircleMarkers(data = airports, radius = 3, group = "Airports (AFFF certified)",
-                 weight = 3, label = airports$LocationID,
+                 weight = 3, 
                  color = "black", fillColor = "green", fillOpacity = 1) %>%
   # addCircleMarkers(data = landfills.lmop, radius = 3, group = "Municipal landfills",
   #                weight = 3,
@@ -335,68 +348,16 @@ map1 <- leaflet(CWS.counties) %>%
                lat2 = as.numeric(limits[4]) + 10
                )
 
-map1 %>% hideGroup(c("EPA Stewardship sites", "Military fire-training areas",
-                     "Airports (AFFF certified)"))
+setView(map1 %>% hideGroup(c("EPA Stewardship sites", "Military fire-training areas",
+                     "Airports (AFFF certified)")),
+        lat = 40, lng = 42, zoom = 3)
 
 
 ```
 
 
-```{r, echo=FALSE, eval=FALSE}
-NJ_PFAS_palette <- colorNumeric(palette = "inferno", demo$sum.6PFAS)
+```{r, echo=FALSE, warning=FALSE}
 
-limits <- st_bbox(NJ_demo)
-
-PFAS_map1 <- leaflet(demo) %>%
-  addProviderTiles("Stamen.Terrain") %>%
-  addPolygons(color = ~NJ_PFAS_palette(sum.6PFAS), stroke = FALSE, 
-              fillOpacity = 0.7, group = "Avg sum of 6 PFAS",
-              highlightOptions = highlightOptions(fillColor = "darkorange", 
-                                                  fillOpacity = 0.9),
-              label = demo$NAME,
-              popup = paste("Total population: ", demo$tot_pop, "<br/>",
-                            "Hispanic population: ", demo$hispanic_pop, " (", 
-                            round(demo$percHisp * 100, 1), "%)", "<br/>",
-                            "Black population: ", demo$black_pop, " (", 
-                            round(demo$percBlack * 100, 1), "%)", "<br/>",
-                            "Average sum of 6 PFAS: ", 
-                            round(demo$sum.6PFAS, 2), 
-                            sep = "")) %>%
-    addLegend("bottomleft", pal = NJ_PFAS_palette, values = ~sum.6PFAS,
-    title = "Average sum of 6 PFAS<br/>from community water systems",
-    labFormat = labelFormat(suffix = " ppt",
-                            transform = function(x) sort(x, decreasing = TRUE)),
-    opacity = 1) %>%
-  addLayersControl(
-    overlayGroups = c("% Hispanic"),
-    options = layersControlOptions(collapsed = FALSE)
-  ) %>% 
-   addPolygons(color = ~demo_palette(percHisp), stroke = FALSE, 
-              fillOpacity = 0.7, group = "% Hispanic",
-              highlightOptions = highlightOptions(fillColor = "darkorange", 
-                                                  fillOpacity = 0.9),
-              label = demo$NAME,
-              popup = paste("Total population: ", demo$tot_pop, "<br/>",
-                            "Hispanic population: ", demo$hispanic_pop, " (", 
-                            round(demo$percHisp * 100, 1), "%)", "<br/>",
-                            "Black population: ", demo$black_pop, " (", 
-                            round(demo$percBlack * 100, 1), "%)", "<br/>",
-                            "Average sum of 6 PFAS: ", 
-                            round(demo$sum.6PFAS, 2), 
-                            sep = "")) %>%
-  addLegend("bottomleft", pal = demo_palette, values = ~percHisp,
-    title = "Percent of population<br/>identifying as Hispanic",
-    labFormat = labelFormat(suffix = "%",
-                            transform = function(x) sort(100 * x, 
-                                                         decreasing = TRUE)),
-    opacity = 1) %>%
-  addLayersControl(
-    baseGroups = c("% Hispanic", "Avg sum of 6 PFAS"),
-    options = layersControlOptions(collapsed = FALSE)
-    
-  )
-
-PFAS_map1
 
 ```
 
