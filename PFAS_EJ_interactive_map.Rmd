@@ -215,15 +215,7 @@ ucmr.counties <- ucmr.counties %>%
 
 ```
 
-
-
-# Interactive maps
-## Statewide sampling data: county level  
-
-The interactive map below shows data from (THE PFAS+EJ PAPER). These data were collated from sampling campaigns from community water systems in 11 states over 2016-2021. Additional information on these data are avaialable in (THE PAPER). To change layers, click on the panel in the bottom right. Detectable levels for the statewide sampling data refer to measurement of that PFAS at least once over 5 ng/L.
-
 ```{r, echo=FALSE, warning=FALSE}
-
 # function for making palettes
 makepalette.f <- function(variable){
 
@@ -240,7 +232,7 @@ popup.f <- function(dataset) {
         round(dataset$percHisp, 0), "%", "<br/>",
         "% Black non-Hispanic: ",
         round(dataset$percBlack, 0), "%", "<br/>",
-        "% White: ",
+        "% White non-Hispanic: ",
         round(dataset$percWhite, 0), "%", "<br/>",
         "% living under the federal poverty line: ",
         round(dataset$poverty, 0), "%", "<br/>", "<br/>",
@@ -263,6 +255,47 @@ popup.f <- function(dataset) {
 }
 
 
+  # color ramps for centered variables
+  rc1 <- colorRampPalette(colors = c("red", "white"), space = "Lab")(round(abs(min(CWS.counties$center.Hisp)), 0))
+  
+  ## Make vector of colors for values larger than 0
+  rc2 <- colorRampPalette(colors = c("white", "blue"), space = "Lab")(round(abs(max(CWS.counties$center.Hisp)), 0))
+  
+  rampcols <- c(rc1, rc2)
+  
+  pal.center.Hisp <- colorNumeric(palette = rampcols, domain = CWS.counties$center.Hisp)
+  
+  # color ramps for centered variables
+  rc1 <- colorRampPalette(colors = c("red", "white"), space = "Lab")(round(abs(min(CWS.counties$center.Black)), 0))
+  
+  ## Make vector of colors for values larger than 0
+  rc2 <- colorRampPalette(colors = c("white", "blue"), space = "Lab")(round(abs(max(CWS.counties$center.Black)), 0))
+  
+  rampcols <- c(rc1, rc2)
+  
+  pal.center.Black <- colorNumeric(palette = rampcols, domain = CWS.counties$center.Black)
+  
+    # color ramps for centered variables
+  rc1 <- colorRampPalette(colors = c("red", "white"), space = "Lab")(round(abs(min(CWS.counties$center.poverty)), 0))
+  
+  ## Make vector of colors for values larger than 0
+  rc2 <- colorRampPalette(colors = c("white", "blue"), space = "Lab")(round(abs(max(CWS.counties$center.poverty)), 0))
+  
+  rampcols <- c(rc1, rc2)
+  
+  pal.center.poverty <- colorNumeric(palette = rampcols, domain = CWS.counties$center.poverty)
+
+  
+```
+
+
+# Interactive maps
+## Statewide sampling data: county level  
+
+The interactive map below shows data from (THE PFAS+EJ PAPER). These data were collated from sampling campaigns from community water systems in 11 states over 2016-2021. Percent Black and White refer to non-Hispanic Black and White residents, respectively. To analyze within-state trends, polygon layers using "centered" variables (substracting the state-specific mean) are also provided. Additional information on these data are avaialable in (THE PAPER). To change layers, click on the panel in the bottom right. Detectable levels for the statewide sampling data refer to measurement of that PFAS at least once over 5 ng/L.
+
+```{r, echo=FALSE, warning=FALSE}
+
 limits <- st_bbox(ucmr.counties)
 
 # prob best to define polygon function?
@@ -280,58 +313,73 @@ map1 <- leaflet(CWS.counties) %>%
               label = CWS.counties$NAME,
               popup = popup.f(dataset = CWS.counties))  %>%
   addPolygons(fillColor = ~makepalette.f(PFOS.avg), stroke = TRUE, 
-            color = "black", opacity = 1, weight = 1,
-            fillOpacity = 1, group = "Detection of PFOS",
-            highlightOptions = highlightOptions(fillColor = "darkblue", 
-                                                fillOpacity = 0.9),
-            label = CWS.counties$NAME,
-            popup = popup.f(dataset = CWS.counties)) %>%
+              color = "black", opacity = 1, weight = 1,
+              fillOpacity = 1, group = "Detection of PFOS",
+              highlightOptions = highlightOptions(fillColor = "darkblue", 
+                                                  fillOpacity = 0.9),
+              label = CWS.counties$NAME,
+              popup = popup.f(dataset = CWS.counties)) %>%
   addPolygons(fillColor = ~makepalette.f(Any.avg), stroke = TRUE, 
-          color = "black", opacity = 1, weight = 1,
-          fillOpacity = 1, group = "Detection of ≥1 PFAS",
-          highlightOptions = highlightOptions(fillColor = "darkblue", 
-                                              fillOpacity = 0.9),
-          label = CWS.counties$NAME,
-          popup = popup.f(dataset = CWS.counties)) %>%
+              color = "black", opacity = 1, weight = 1,
+              fillOpacity = 1, group = "Detection of ≥1 PFAS",
+              highlightOptions = highlightOptions(fillColor = "darkblue", 
+                                                  fillOpacity = 0.9),
+              label = CWS.counties$NAME,
+              popup = popup.f(dataset = CWS.counties)) %>%
 
-    addPolygons(fillColor = ~makepalette.f(percHisp), stroke = TRUE, 
-                color = "black", opacity = 1, weight = 1,
-                fillOpacity = 1, group = "% Hispanic residents",
-                highlightOptions = highlightOptions(fillColor = "darkblue", 
-                                                    fillOpacity = 0.9),
-                label = CWS.counties$NAME,
-                popup = popup.f(dataset = CWS.counties)) %>%
-  
-    addPolygons(fillColor = ~makepalette.f(percBlack),
-                stroke = TRUE, color = "black", opacity = 1, weight = 1,
-                fillOpacity = 1, group = "% Black residents",
-                highlightOptions = highlightOptions(fillColor = "darkblue", 
-                                                    fillOpacity = 0.9),
-                label = CWS.counties$NAME,
-                popup = popup.f(dataset = CWS.counties)) %>%
-  
-    addPolygons(fillColor = ~makepalette.f(percWhite),
+  addPolygons(fillColor = ~makepalette.f(percHisp), stroke = TRUE, 
+              color = "black", opacity = 1, weight = 1,
+              fillOpacity = 1, group = "% Hispanic residents",
+              highlightOptions = highlightOptions(fillColor = "darkblue", 
+                                                  fillOpacity = 0.9),
+              label = CWS.counties$NAME,
+              popup = popup.f(dataset = CWS.counties)) %>%
+
+  addPolygons(fillColor = ~makepalette.f(percBlack),
+              stroke = TRUE, color = "black", opacity = 1, weight = 1,
+              fillOpacity = 1, group = "% Black residents",
+              highlightOptions = highlightOptions(fillColor = "darkblue", 
+                                                  fillOpacity = 0.9),
+              label = CWS.counties$NAME,
+              popup = popup.f(dataset = CWS.counties)) %>%
+
+  addPolygons(fillColor = ~makepalette.f(percWhite),
               stroke = TRUE, color = "black", opacity = 1, weight = 1,
               fillOpacity = 1, group = "% White residents",
               highlightOptions = highlightOptions(fillColor = "darkblue", 
                                                   fillOpacity = 0.9),
               label = CWS.counties$NAME,
               popup = popup.f(dataset = CWS.counties)) %>%
-    addPolygons(fillColor = ~makepalette.f(center.Hisp), stroke = TRUE,
-        color = "black", opacity = 1, weight = 1,
-        fillOpacity = 1, group = "% Hispanic residents (centered)",
-        highlightOptions = highlightOptions(fillColor = "darkblue",
-                                            fillOpacity = 0.9),
-        label = CWS.counties$NAME,
-        popup = popup.f(dataset = CWS.counties)) %>%
-    addPolygons(fillColor = ~makepalette.f(poverty),
+  
+  addPolygons(fillColor = ~pal.center.Hisp(center.Hisp), stroke = TRUE,
+              color = "black", opacity = 1, weight = 1,
+              fillOpacity = 1, group = "% Hispanic residents (centered)",
+              highlightOptions = highlightOptions(fillColor = "darkblue",
+                                                  fillOpacity = 0.9),
+              label = CWS.counties$NAME,
+              popup = popup.f(dataset = CWS.counties)) %>%
+  addPolygons(fillColor = ~pal.center.Black(center.Black), stroke = TRUE,
+            color = "black", opacity = 1, weight = 1,
+            fillOpacity = 1, group = "% Black residents (centered)",
+            highlightOptions = highlightOptions(fillColor = "darkblue",
+                                                fillOpacity = 0.9),
+            label = CWS.counties$NAME,
+            popup = popup.f(dataset = CWS.counties)) %>%
+  addPolygons(fillColor = ~pal.center.poverty(center.poverty), stroke = TRUE,
+            color = "black", opacity = 1, weight = 1,
+            fillOpacity = 1, group = "% residents living under federal poverty line (centered)",
+            highlightOptions = highlightOptions(fillColor = "darkblue",
+                                                fillOpacity = 0.9),
+            label = CWS.counties$NAME,
+            popup = popup.f(dataset = CWS.counties)) %>%
+  addPolygons(fillColor = ~makepalette.f(poverty),
               stroke = TRUE, color = "black", opacity = 1, weight = 1,
               fillOpacity = 1, group =  "% residents living under federal poverty line",
               highlightOptions = highlightOptions(fillColor = "darkblue", 
                                                   fillOpacity = 0.9),
               label = CWS.counties$NAME,
               popup = popup.f(dataset = CWS.counties)) %>%
-  
+    
     # PFAS sources
   addCircleMarkers(data = epa, radius = 3, group = "EPA Stewardship sites",
                    weight = 3, color = "black", 
@@ -348,8 +396,8 @@ map1 <- leaflet(CWS.counties) %>%
   addLayersControl(
     position = "bottomright",
     baseGroups  = c("% Hispanic residents", "% Hispanic residents (centered)",
-                    "% Black residents", "% White residents",
-                    "% residents living under federal poverty line",
+                    "% Black residents", "% Black residents (centered)", "% White residents",
+                    "% residents living under federal poverty line", "% residents living under federal poverty line (centered)",
                     "Detection of PFOA", "Detection of PFOS", "Detection of ≥1 PFAS"),
     overlayGroups = c("EPA Stewardship sites", "Military fire-training areas",
                       "Airports (AFFF certified)"),
@@ -562,14 +610,14 @@ map3 <- leaflet(ucmr.counties) %>%
               popup = popup.f(dataset = ucmr.counties)) %>%
   
     # PFAS sources
-  addCircleMarkers(data = epa, radius = 3, group = "EPA Stewardship sites",
-                   weight = 3, color = "black", 
-                   fillColor = "goldenrod", fillOpacity = 1) %>%
-  addCircleMarkers(data = military, radius = 3, group = "Military fire-training areas",
-                 weight = 3, color = "black", fillColor = "purple", fillOpacity = 1) %>%
-  addCircleMarkers(data = airports, radius = 3, group = "Airports (AFFF certified)",
-                 weight = 3, clusterOptions = markerClusterOptions(),
-                 color = "black", fillColor = "green", fillOpacity = 1) %>%
+  # addCircleMarkers(data = epa, radius = 3, group = "EPA Stewardship sites",
+  #                  weight = 3, color = "black", 
+  #                  fillColor = "goldenrod", fillOpacity = 1) %>%
+  # addCircleMarkers(data = military, radius = 3, group = "Military fire-training areas",
+  #                weight = 3, color = "black", fillColor = "purple", fillOpacity = 1) %>%
+  # addCircleMarkers(data = airports, radius = 3, group = "Airports (AFFF certified)",
+  #                weight = 3, clusterOptions = markerClusterOptions(),
+  #                color = "black", fillColor = "green", fillOpacity = 1) %>%
 
   # addCircleMarkers(data = landfills.lmop, radius = 3, group = "Municipal landfills",
   #                weight = 3,
