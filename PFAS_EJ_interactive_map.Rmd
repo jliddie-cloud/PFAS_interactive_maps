@@ -213,6 +213,9 @@ ucmr.counties <- ucmr.counties %>%
          center.poverty = poverty - mean.poverty
          ) %>% ungroup()
 
+ucmr.counties$urban <- ifelse(ucmr.counties$percurban >= 0.5, "Urban", "Rural")
+CWS.counties$urban <- ifelse(CWS.counties$percurban >= 0.5, "Urban", "Rural")
+
 ```
 
 ```{r, echo=FALSE, warning=FALSE}
@@ -235,7 +238,9 @@ popup.f <- function(dataset) {
         "% White non-Hispanic: ",
         round(dataset$percWhite, 0), "%", "<br/>",
         "% living under the federal poverty line: ",
-        round(dataset$poverty, 0), "%", "<br/>", "<br/>",
+        round(dataset$poverty, 0), "%", "<br/>",
+        "Urban or rural (≥50% residents in urban areas): ", dataset$urban, "<br/>",
+        "<br/>",
         "<B>PFAS data (% of systems with detectable levels) </B>", "<br/>",
         "PFOA: ", 
         round(dataset$PFOA.avg, 0), "%", "<br/>",
@@ -254,7 +259,9 @@ popup.f <- function(dataset) {
         sep = "")
 }
 
-
+  CWS.counties$urban <- as.factor(CWS.counties$urban)
+  pal.urban <- colorFactor(palette = c("blue", "darkgreen"), CWS.counties$urban)
+  
   # color ramps for centered variables
   rc1 <- colorRampPalette(colors = c("red", "white"), space = "Lab")(round(abs(min(CWS.counties$center.Hisp)), 0))
   
@@ -292,7 +299,9 @@ popup.f <- function(dataset) {
 # Interactive maps
 ## Statewide sampling data: county level  
 
-The interactive map below shows data from (THE PFAS+EJ PAPER). These data were collated from sampling campaigns from community water systems in 11 states over 2016-2021. Percent Black and White refer to non-Hispanic Black and White residents, respectively. To analyze within-state trends, polygon layers using "centered" variables (substracting the state-specific mean) are also provided. Additional information on these data are avaialable in (THE PAPER). To change layers, click on the panel in the bottom right. Detectable levels for the statewide sampling data refer to measurement of that PFAS at least once over 5 ng/L.
+The interactive map below shows PFAS drinking water data, sociodemographics, and datasets on confirmed and likely PFAS contamination sources obtained as part of "Sociodemographic Determinants of PFAS Contamination in United States Community Water Supplies". These data were collated from statewide sampling campaigns from community water systems in 11 states over 2016-2021. Percent Black and White refer to non-Hispanic Black and White residents, respectively. To analyze within-state trends, polygon layers using "centered" variables (substracting the state-specific mean) are also provided. Additional information on these data are available in the associated paper. 
+
+To change layers, click on the panel in the bottom right. Concentrations for the statewide sampling data refer to measurement of that PFAS at least once over 5 nanograms per liter.
 
 ```{r, echo=FALSE, warning=FALSE}
 
@@ -379,6 +388,13 @@ map1 <- leaflet(CWS.counties) %>%
                                                   fillOpacity = 0.9),
               label = CWS.counties$NAME,
               popup = popup.f(dataset = CWS.counties)) %>%
+  addPolygons(fillColor = ~pal.urban(urban),
+            stroke = TRUE, color = "black", opacity = 1, weight = 1,
+            fillOpacity = 1, group =  "Urban or rural area",
+            highlightOptions = highlightOptions(fillColor = "darkblue", 
+                                                fillOpacity = 0.9),
+            label = CWS.counties$NAME,
+            popup = popup.f(dataset = CWS.counties)) %>%
     
     # PFAS sources
   addCircleMarkers(data = epa, radius = 3, group = "EPA Stewardship sites",
@@ -397,7 +413,9 @@ map1 <- leaflet(CWS.counties) %>%
     position = "bottomright",
     baseGroups  = c("% Hispanic residents", "% Hispanic residents (centered)",
                     "% Black residents", "% Black residents (centered)", "% White residents",
-                    "% residents living under federal poverty line", "% residents living under federal poverty line (centered)",
+                    "% residents living under federal poverty line",
+                    "% residents living under federal poverty line (centered)",
+                    "Urban or rural area",
                     "Detection of PFOA", "Detection of PFOS", "Detection of ≥1 PFAS"),
     overlayGroups = c("EPA Stewardship sites", "Military fire-training areas",
                       "Airports (AFFF certified)"),
