@@ -295,11 +295,9 @@ popup.f <- function(dataset) {
   
 ```
 
+# Statewide sampling data: county level
 
-# Interactive maps
-## Statewide sampling data: county level  
-
-The interactive map below shows PFAS drinking water data, sociodemographics, and datasets on confirmed and likely PFAS contamination sources obtained as part of "Sociodemographic Determinants of PFAS Contamination in United States Community Water Supplies". These data were collated from statewide sampling campaigns from community water systems in 11 states over 2016-2021. Percent Black and White refer to non-Hispanic Black and White residents, respectively. To analyze within-state trends, polygon layers using "centered" variables (substracting the state-specific mean) are also provided. Additional information on these data are available in the associated paper. 
+The interactive map below shows PFAS drinking water data, sociodemographics, and datasets on confirmed and likely PFAS contamination sources obtained as part of **"Sociodemographic Determinants of PFAS Contamination in United States Community Water Supplies"**. These data were collated from statewide sampling campaigns from community water systems in 11 states over 2016-2021. Percent Black and White refer to non-Hispanic Black and White residents, respectively. To analyze within-state trends, polygon layers using "centered" variables (substracting the state-specific mean) are also provided. Additional information on these data are available in the associated paper. 
 
 To change layers, click on the panel in the bottom right. Concentrations for the statewide sampling data refer to measurement of that PFAS at least once over 5 nanograms per liter.
 
