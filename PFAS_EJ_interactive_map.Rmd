@@ -433,10 +433,10 @@ map1 <- leaflet(CWS.counties) %>%
                       "Airports (AFFF certified)",
                       "Individual community water systems"),
     options = layersControlOptions(collapsed = TRUE)) %>%
-    setMaxBounds(lng1 = as.numeric(limits[1]),
-               lat1 = as.numeric(limits[2]) - 10,
-               lng2 = as.numeric(limits[3]) + 10,
-               lat2 = as.numeric(limits[4]) + 10
+    setMaxBounds(lng1 = as.numeric(limits[1]) - 20,
+                 lat1 = as.numeric(limits[2]) - 20,
+                 lng2 = as.numeric(limits[3]) + 20,
+                 lat2 = as.numeric(limits[4]) + 20
                )
 
 setView(map1 %>% hideGroup(c("EPA Stewardship sites", "Military fire-training areas",
