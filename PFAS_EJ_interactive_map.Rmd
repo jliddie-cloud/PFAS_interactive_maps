@@ -744,6 +744,7 @@ makepalette.HUC.f <- function(variable){
                                    domain = log10(HUC.PFAS$variable))
   
   variable_palette(variable)
+  
 }
 
 
