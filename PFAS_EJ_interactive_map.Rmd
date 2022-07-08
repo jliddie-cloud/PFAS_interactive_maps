@@ -24,7 +24,7 @@ library(ggspatial)
 library(htmlwidgets)
 
 # PFAS data
-CWS <- read.csv("../../Merged PFAS data/final_dat_FN.csv")
+CWS <- read.csv("../../Merged PFAS data/final_dat_FN_new data.csv")
 CWS.counties <- st_read("../../Merged PFAS data/CWS_formapping.geojson")
 centroids <- st_read("../../Merged PFAS data/CWS_centroid.geojson")
 ucmr.counties <- st_read("../../Merged PFAS data/UCMR_formapping.geojson")
@@ -55,6 +55,8 @@ ucmr.counties <- st_transform(ucmr.counties, crs = st_crs(centroids))
   CWS.states <- c("california", "colorado", "kentucky", "massachusetts", "michigan",
               "maryland", "new hampshire", "new jersey", "pennsylvania", "ohio",
               "vermont")
+  
+  WWTP <- read.csv("../../PFAS point source data/WWTP facility_details.csv")
   
   ucmr.states <- c(tolower(ucmr.counties$state_name))
     
@@ -154,6 +156,21 @@ knitr::opts_chunk$set(echo = TRUE)
     filter(!is.na(lat) & !is.na(lon)) %>%
     # drop missing coords
     st_as_sf(coords = c("lon", "lat"), crs = st_crs(centroids))
+  
+    # add leading zero to HUC codes if they are under 8 characters
+    WWTP$Watershed.HUC <- ifelse(str_length(WWTP$Watershed.HUC) < 8, 
+                                paste("0", WWTP$Watershed.HUC, sep=""),
+                                WWTP$Watershed.HUC)
+    
+    WWTP.HUCs <- WWTP %>% group_by(Watershed.HUC, Watershed.Name) %>% 
+    dplyr::summarise(WWTP_count = n(), 
+           WWTP_existingtotalflow_Mgal.d = sum(as.numeric(Existing.Total.Flow..Mgal.d.))) %>% 
+    ungroup()
+    
+    WWTP.HUCs <- WWTP.HUCs %>% dplyr::rename(
+    HUC_CODE = Watershed.HUC,
+    HUC_NAME = Watershed.Name
+    )
   
 ```
 
@@ -305,7 +322,7 @@ centroids_map$Any_detect_map <- ifelse(centroids_map$Any_detect == 1,
 
 # Statewide sampling dataset
 
-The interactive map below shows PFAS drinking water data, sociodemographics, and datasets on confirmed and likely PFAS contamination sources obtained as part of **"Sociodemographic Determinants of PFAS Contamination in United States Community Water Supplies"**. These data were collated from statewide sampling campaigns from community water systems in 11 states over 2016-2021.  
+The interactive map below shows PFAS drinking water data, sociodemographics, and datasets on confirmed and likely PFAS contamination sources obtained as part of **"Sociodemographic Determinants of PFAS Contamination in United States Community Water Supplies"**. These data were compiled from >63,000 samples collected in 14 statewide sampling campaigns of approximately 6,300 community water systems from 2016-2021.  
 
 Percent Black and White refer to non-Hispanic Black and White residents, respectively. To analyze within-state demographic trends, polygon layers using "centered" demographics (substracting the state-specific mean) are also provided. PFAS data for individual water systems can also be viewed - these should be viewed with caution, as water systems may serve multiple / non-adjacent areas and geocoded locations may be inexact. Concentrations for the statewide sampling data refer to measurement of that PFAS at least once over 5 nanograms per liter. Additional information on all data are available in the associated paper. 
 
@@ -575,7 +592,7 @@ setView(map2 %>% hideGroup(c("EPA Stewardship sites",
 
 ```{r,  echo=FALSE, warning=FALSE, eval=FALSE}
 
-map3 <- leaflet(ucmr.counties) %>%
+map2 <- leaflet(ucmr.counties) %>%
   addProviderTiles(providers$CartoDB.Positron, group = "CartoDB.Positron") %>%
   
   # other providers: https://leaflet-extras.github.io/leaflet-providers/preview/
@@ -673,4 +690,103 @@ setView(map3 %>% hideGroup(c("EPA Stewardship sites",
                              "Airports (AFFF certified)")),
         lat = 40, lng = 42, zoom = 3)
 ```
+
+<!-- HUC map data processing -->
+```{r, echo=FALSE, eval=FALSE}
+HUCs <- st_read("../../PFAS point source data/huc250k_shp/huc250k_shp/huc250k.shp")
+
+HUCs <- st_transform(HUCs, crs = st_crs(CWS.counties))
+
+all.measurements <- read.csv("../../Merged PFAS data/dat.csv")
+
+all.measurements <- all.measurements %>% filter(PWSID %in% CWS$PWSID)
+
+all.measurements <- left_join(all.measurements, 
+                              CWS %>% select(PWSID, HUC_NAME, HUC_CODE)
+                              )
+
+# separate out systems with multiple HUCs
+all.measurements <- all.measurements %>%
+  separate_rows(c(HUC_NAME, HUC_CODE), sep = ",")
+
+
+HUC.PFAS <- all.measurements %>%
+  group_by(HUC_NAME, HUC_CODE) %>%
+  summarise(across(c(PFOA, PFOS, PFNA, PFHxS, PFBS, PFHpA, ends_with("detect")), 
+                   ~max(.x, na.rm = T))
+            ) %>%
+  ungroup()
+
+# any_detect variable: this is only assessed among systems that measured all 5 at least once
+HUC.PFAS <- HUC.PFAS %>% mutate(
+  Any_detect = ifelse( (!is.na(PFOA_detect) & !is.na(PFOS_detect) & !is.na(PFNA_detect) & !is.na(PFHxS_detect) & !is.na(PFBS_detect)) & 
+                         ((PFOA_detect > 0 | PFOS_detect > 0 | PFNA_detect > 0 | PFHxS_detect > 0 | PFBS_detect > 0)), 1, 0)
+)
+
+# NA -Inf values for PFAS (these indicate no measurements)
+HUC.PFAS <- HUC.PFAS %>%
+  mutate(across(c(PFOA, PFOS, PFNA, PFHxS, PFBS, PFHpA, 
+                  PFNA_detect, PFBS_detect, PFHpA_detect, PFHxS_detect),
+                ~ifelse(is.infinite(.x), NA, .x))
+         )
+
+# join with spatial data
+HUC.PFAS$ID <- 1:nrow(HUC.PFAS)
+
+HUC.PFAS <- left_join(HUCs, HUC.PFAS)
+
+HUC.PFAS <- HUC.PFAS %>% filter(!is.na(ID))
+
+# mapping functions
+makepalette.HUC.f <- function(variable){
+
+  variable_palette <- colorNumeric(palette = "Blues", HUC.PFAS$variable,
+                                   domain = log10(HUC.PFAS$variable))
+  
+  variable_palette(variable)
+}
+
+
+```
+
+<!-- HUC map -->
+```{r, echo=FALSE, eval=FALSE}
+
+pal <- colorNumeric(palette = "Blues",domain = log10(HUC.PFAS$PFOA))
+
+map2 <- leaflet(HUC.PFAS) %>%
+  addProviderTiles(providers$CartoDB.Positron, group = "CartoDB.Positron") %>%
+
+    addPolygons(fillColor = ~pal(log10(HUC.PFAS$PFOA)), 
+                stroke = TRUE, 
+                color = "black", opacity = 1, weight = 1,
+                fillOpacity = 1, group = "Max PFOA concentration [ppt]",
+                highlightOptions = highlightOptions(fillColor = "darkblue", 
+                                                    fillOpacity = 0.9),
+                label = HUC.PFAS$HUC_NAME) %>%
+  
+    # PFAS sources
+  addCircleMarkers(data = epa, radius = 3, group = "EPA Stewardship sites",
+                   weight = 3, color = "black", 
+                   fillColor = "goldenrod", fillOpacity = 1) %>%
+  addCircleMarkers(data = military, radius = 3, group = "Military fire-training areas",
+                 weight = 3, color = "black", fillColor = "purple", fillOpacity = 1) %>%
+  addCircleMarkers(data = airports, radius = 3, group = "Airports (AFFF certified)",
+                 weight = 3, clusterOptions = markerClusterOptions(),
+                 color = "black", fillColor = "green", fillOpacity = 1) %>%
+  
+  addLayersControl(
+    position = "bottomright",
+    baseGroups  = c("Max PFOA concentration [ppt]"),
+    overlayGroups = c("EPA Stewardship sites", "Military fire-training areas",
+                      "Airports (AFFF certified)"),
+    options = layersControlOptions(collapsed = TRUE)) %>%
+    setMaxBounds(lng1 = as.numeric(limits[1]),
+                 lat1 = as.numeric(limits[2]) - 10,
+                 lng2 = as.numeric(limits[3]) + 10,
+                 lat2 = as.numeric(limits[4]) + 10
+                 )
+
+```
+
 
