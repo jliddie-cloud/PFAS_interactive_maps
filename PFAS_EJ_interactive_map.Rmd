@@ -194,7 +194,7 @@ centroids.nosf <- st_as_sf(centroids.nosf, coords = c("X", "Y"),
 # overwrite now
 centroids <- centroids.nosf
 
-centroids <- left_join(centroids, CWS)
+centroids <- left_join(centroids, CWS, by = "PWSID")
 
 ```
 
@@ -231,8 +231,8 @@ ucmr.counties <- ucmr.counties %>%
          center.poverty = poverty - mean.poverty
          ) %>% ungroup()
 
-ucmr.counties$urban <- ifelse(ucmr.counties$percurban >= 0.5, "Urban", "Rural")
-CWS.counties$urban <- ifelse(CWS.counties$percurban >= 0.5, "Urban", "Rural")
+ucmr.counties$urban <- ifelse(ucmr.counties$percurban >= 50, "Urban", "Rural")
+CWS.counties$urban <- ifelse(CWS.counties$percurban >= 50, "Urban", "Rural")
 
 ```
 
@@ -322,9 +322,9 @@ centroids_map$Any_detect_map <- ifelse(centroids_map$Any_detect == 1,
 
 # Statewide sampling dataset
 
-The interactive map below shows PFAS drinking water data, sociodemographics, and datasets on confirmed and likely PFAS contamination sources obtained as part of **"Sociodemographic Determinants of PFAS Contamination in United States Community Water Supplies"**. These data were compiled from >63,000 samples collected in 14 statewide sampling campaigns of approximately 6,300 community water systems from 2016-2021.  
+The interactive map below shows PFAS drinking water data, sociodemographics, and datasets on confirmed and likely PFAS contamination sources obtained as part of **"Sociodemographic Determinants of PFAS Contamination in United States Community Water Supplies"**. These data were compiled from >65,000 samples collected in 17 statewide sampling campaigns of approximately 7,700 community water systems from 2016-2022.  
 
-Percent Black and White refer to non-Hispanic Black and White residents, respectively. To analyze within-state demographic trends, polygon layers using "centered" demographics (substracting the state-specific mean) are also provided. PFAS data for individual water systems can also be viewed - these should be viewed with caution, as water systems may serve multiple / non-adjacent areas and geocoded locations may be inexact. Concentrations for the statewide sampling data refer to measurement of that PFAS at least once over 5 nanograms per liter. Additional information on all data are available in the associated paper. 
+Percent Black and White refer to non-Hispanic Black and White residents, respectively. To analyze within-state demographic trends, polygon layers using "centered" demographics (substracting the state-specific mean) are also provided. PFAS data for individual water systems can also be viewed - these should be viewed with caution, as water systems may serve multiple / non-adjacent areas and geocoded locations may be inexact in certain cases. Concentrations for the statewide sampling data refer to measurement of that PFAS at least once over 5 nanograms per liter. Additional information on all data are available in the associated paper. 
 
 To change layers, click on the panel in the bottom right.
 
